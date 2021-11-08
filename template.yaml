@@ -77,7 +77,7 @@ Resources:
     Properties:
       FunctionName: !Sub ${AWS::StackName}-sample-app
       Description: !Sub ${AWS::StackName} Compose Backend
-      Handler: src/app.handler
+      Handler: dist/app.handler
       Policies:
         - AWSXrayWriteOnlyAccess
         - Version: '2012-10-17'

@@ -1,6 +1,6 @@
-const fetch = require('node-fetch')
+import fetch from 'node-fetch'
 
-exports.handler =  async function(event, _) {
+export const handler = async (event, context?) => {
   console.log(JSON.stringify(event))
   const host = `http://${event.pathParameters.host}`
   const response = await fetch(host)

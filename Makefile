@@ -8,6 +8,7 @@ install:
 	yarn install
 
 build:
+	yarn build
 	sam build --cached
 
 build-SampleFunction: copy-artifacts
@@ -18,7 +19,7 @@ build-Dependencies:
 	cp -r node_modules "$(ARTIFACTS_DIR)/nodejs"
 
 copy-artifacts:
-	cp -r src "$(ARTIFACTS_DIR)"
+	cp -r dist "$(ARTIFACTS_DIR)"
 
 deploy:
 	sam deploy --stack-name $(STACK_NAME) \
