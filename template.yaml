@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 
+- AWS::Serverless-2016-10-31
+Description: Compose Backend
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: compose-backend
+    Description: Compose Backend
+    Author: Justin Menga
+    SpdxLicenseId: MIT
+    LicenseUrl: LICENSE.txt
+    ReadmeUrl: README.md
+    Labels: ['compose-backend','cloudformation']
+    HomePageUrl: https://github.com/compose-run/compose-backend
+    SemanticVersion: 0.1.0
+    SourceCodeUrl: https://github.com/compose-run/compose-backend
+
+# Stack inputs
+Parameters:
+  MemorySize:
+    Type: Number
+    Description: Function Memory
+    Default: 1769
+    MinValue: 128
+    MaxValue: 3008
+  Runtime:
+    Type: String
+    Description: Lambda runtime
+    Default: nodejs14.x
+  Timeout:
+    Type: Number
+    Description: Function Timeout
+    Default: 900
+  LogRetention:
+    Type: Number
+    Description: Log Retention
+    Default: 30
+    AllowedValues: [ 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653 ]
+
+# Global settings
+Globals:
+  Function:
+    AutoPublishAlias: latest
+    MemorySize: !Ref MemorySize
+    Runtime: !Ref Runtime
+    Timeout: !Ref Timeout
+    Tracing: Active
+    Layers:
+      - !Ref Dependencies
+
+Resources:
+  # Dependencies Layer
+  Dependencies:
+    Type: AWS::Serverless::LayerVersion
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      LayerName: !Sub ${AWS::StackName}-dependencies
+      Description: !Sub ${AWS::StackName} dependencies
+      ContentUri: ./
+      CompatibleRuntimes:
+        - !Ref Runtime
+      LicenseInfo: MIT
+      RetentionPolicy: Delete
+  # Serverless API
+  SampleApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: v1
+
+  # Serverless Function
+  SampleFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: SampleFunctionLogGroup
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-sample-app
+      Description: !Sub ${AWS::StackName} Compose Backend
+      Handler: dist/app.handler
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: ExamplePermissions
+              Effect: Allow
+              Action:
+              - s3:GetObject
+              Resource: '*'
+      Events:
+        Get:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SampleApi
+            Method: GET
+            Path: /{host}
+  SampleFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-sample-app
+      RetentionInDays: !Ref LogRetention
+
+Outputs:
+  SampleApi:
+    Description: API Gateway Endpoint
+    Value: !Sub https://${SampleApi}.execute-api.${AWS::Region}.amazonaws.com/v1
+  SampleFunctionAlias:
+    Description: Sample Function Alias
+    Value: !Sub ${SampleFunction.Alias}
