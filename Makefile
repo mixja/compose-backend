@@ -2,7 +2,7 @@
 PROJECT_NAME = compose-backend
 ARTIFACTS_BUCKET = compose-sandbox-us-east-1-artifacts
 
-make: install test build deploy
+make: install test build deploy integration
 
 install:
 	yarn install
@@ -30,6 +30,9 @@ deploy:
 
 test:
 	yarn test
+
+integration:
+	yarn integration
 
 # General settings
 BRANCH_NAME != git rev-parse --abbrev-ref HEAD

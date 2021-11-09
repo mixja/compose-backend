@@ -2,6 +2,7 @@
   "name": "compose-backend",
   "packageManager": "yarn@3.1.0",
   "devDependencies": {
+    "@aws-sdk/client-cloudformation": "^3.40.0",
     "@babel/core": "^7.16.0",
     "@babel/preset-env": "^7.16.0",
     "@babel/preset-typescript": "^7.16.0",
@@ -15,11 +16,17 @@
   },
   "dependencies": {
     "aws-xray-sdk": "^3.3.3",
-    "node-fetch": "~2"
+    "axios": "^0.24.0"
   },
   "scripts": {
     "build": "tsc",
-    "test": "jest",
-    "watch": "jest --watch"
+    "integration": "jest __tests__/integration",
+    "test": "jest --silent __tests__/unit",
+    "watch": "jest --silent --watch __tests__/unit"
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.[t|j]sx?$": "babel-jest"
+    }
   }
 }

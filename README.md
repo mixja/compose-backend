@@ -10,7 +10,7 @@
 You must also configure a local AWS profile and ensure this is configured in your terminal:
 
 ```
-% cat ~/.aws/credential
+% cat ~/.aws/credentials
 [compose-sandbox]
 aws_access_key_id=xxxxx
 aws_secret_access_key=xxxx
