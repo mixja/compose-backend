@@ -1,29 +1,33 @@
 import { DynamoDB } from '@aws-sdk/client-dynamodb'
 import { DynamoDBDocument } from '@aws-sdk/lib-dynamodb'
 
-
 const dynamodb = new DynamoDB({})
 const client = DynamoDBDocument.from(dynamodb)
-const TableName = process.env.DYNAMODB_TABLE
+const { DYNAMODB_TABLE } = process.env
 
 export const handler = async (event, context?) => {
   console.log(JSON.stringify(event))
-  const key = event.pathParameters.key
-  const method = event.requestContext.http.method
+  // Get key and method
+  const { key } = event.pathParameters
+  const { method } = event.requestContext.http
   const pk = `state#${key}`
   const sk = `state#${key}`  
   let result
   let item
+
+  // Process request
   switch (method) {
+    // Get request
     case 'GET':
       const Key = { pk, sk }
-      item = (await client.get({ TableName, Key })).Item
+      item = (await client.get({ TableName: DYNAMODB_TABLE, Key })).Item
       result = { statusCode: 200, body: JSON.stringify(item) }
       break
+    // Put request
     case 'PUT':
       const body = JSON.parse(event.body)
       const Item = { pk, sk, ...body }
-      await client.put({ TableName, Item })
+      await client.put({ TableName: DYNAMODB_TABLE, Item })
       result = { statusCode: 200, body: JSON.stringify(Item) }
       break
     default:
