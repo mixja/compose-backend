@@ -142,6 +142,40 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-db
+  # DynamoDB Stream Function
+  ApplicationDatabaseStreamMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: True
+      EventSourceArn: !GetAtt ApplicationDatabase.StreamArn
+      FunctionName: !Sub ${ApplicationDatabaseStreamFunction.Alias}
+      StartingPosition: LATEST
+  ApplicationDatabaseStreamFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: ApplicationDatabaseStreamFunctionLogGroup
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-stream-function
+      Description: !Sub ${AWS::StackName} Application Database Stream Function
+      Handler: stream.handler
+      CodeUri: ./dist
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationDatabase
+        - DynamoDBStreamReadPolicy:
+            TableName: !Select [1, !Split ["/", !GetAtt ApplicationDatabase.StreamArn]]
+            StreamName: !Select [3, !Split ["/", !GetAtt ApplicationDatabase.StreamArn]]
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref ApplicationDatabase
+          DYNAMODB_GSI1_INDEX: !Sub ${AWS::StackName}-gsi1
+  ApplicationDatabaseStreamFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-stream-function
+      RetentionInDays: !Ref LogRetention
   # Websockets API
   WebSocketApi:
     Type: AWS::ApiGatewayV2::Api
