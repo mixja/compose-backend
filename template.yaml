@@ -62,22 +62,302 @@ Resources:
         - !Ref Runtime
       LicenseInfo: MIT
       RetentionPolicy: Delete
+  # Rest API
+  RestApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: v1
+  # State Function
+  StateFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: StateFunctionLogGroup
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-state-function
+      Description: !Sub ${AWS::StackName} State Function
+      Handler: state.handler
+      CodeUri: ./dist
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationDatabase
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref ApplicationDatabase
+          DYNAMODB_GSI1_INDEX: !Sub ${AWS::StackName}-gsi1
+      Events:
+        GetState:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RestApi
+            Method: GET
+            Path: /state/{key}
+        PutState:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RestApi
+            Method: PUT
+            Path: /state/{key}
+  StateFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-state-function
+      RetentionInDays: !Ref LogRetention
+  # DynamoDB
+  ApplicationDatabase:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-db
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      GlobalSecondaryIndexes:
+        - IndexName: !Sub ${AWS::StackName}-gsi1
+          KeySchema:
+            - AttributeName: gsi1pk
+              KeyType: HASH
+            - AttributeName: gsi1sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: gsi1pk
+          AttributeType: S
+        - AttributeName: gsi1sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-db
+  # DynamoDB Stream Function
+  ApplicationDatabaseStreamMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: True
+      EventSourceArn: !GetAtt ApplicationDatabase.StreamArn
+      FunctionName: !Sub ${ApplicationDatabaseStreamFunction.Alias}
+      StartingPosition: LATEST
+  ApplicationDatabaseStreamFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: ApplicationDatabaseStreamFunctionLogGroup
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-stream-function
+      Description: !Sub ${AWS::StackName} Application Database Stream Function
+      Handler: stream.handler
+      CodeUri: ./dist
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationDatabase
+        - DynamoDBStreamReadPolicy:
+            TableName: !Select [1, !Split ["/", !GetAtt ApplicationDatabase.StreamArn]]
+            StreamName: !Select [3, !Split ["/", !GetAtt ApplicationDatabase.StreamArn]]
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref ApplicationDatabase
+          DYNAMODB_GSI1_INDEX: !Sub ${AWS::StackName}-gsi1
+  ApplicationDatabaseStreamFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-stream-function
+      RetentionInDays: !Ref LogRetention
+  # Websockets API
+  WebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub ${AWS::StackName}-websockets
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: $request.body.action
+  WebSocketConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      OperationName: ConnectRoute
+      Target: !Sub integrations/${WebSocketConnectIntegration}
+  WebSocketConnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: !Sub ${AWS::StackName} websockets connect integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketConnectFunction.Alias}/invocations
+  WebSocketDisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      OperationName: DisconnectRoute
+      Target: !Sub integrations/${WebSocketDisconnectIntegration}
+  WebSocketDisconnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: !Sub ${AWS::StackName} websockets disconnect integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketDisconnectFunction.Alias}/invocations
+  WebSocketSendRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: sendmessage
+      AuthorizationType: NONE
+      OperationName: SendRoute
+      Target: !Sub integrations/${WebSocketSendIntegration}
+  WebSocketSendIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: !Sub ${AWS::StackName} websockets send integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketSendFunction.Alias}/invocations
+  WebSocketDeployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+    - WebSocketConnectRoute
+    - WebSocketSendRoute
+    - WebSocketDisconnectRoute
+    Properties:
+      ApiId: !Ref WebSocketApi
+  WebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: v1
+      Description: v1 Stage
+      DeploymentId: !Ref WebSocketDeployment
+      ApiId: !Ref WebSocketApi
+  # Websocket Connect Function
+  WebSocketConnectFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: WebSocketConnectFunctionLogGroup
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-websocket-connect
+      Description: !Sub ${AWS::StackName} Websocket Connect
+      Handler: connect.handler
+      CodeUri: ./dist
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationDatabase
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref ApplicationDatabase
+          DYNAMODB_GSI1_INDEX: !Sub ${AWS::StackName}-gsi1
+  WebSocketConnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub ${WebSocketConnectFunction.Alias}
+      Principal: apigateway.amazonaws.com
+  WebSocketConnectFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-websocket-connect
+      RetentionInDays: !Ref LogRetention
+  # Websocket Disconnect Function
+  WebSocketDisconnectFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: WebSocketDisconnectFunctionLogGroup
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-websocket-disconnect
+      Description: !Sub ${AWS::StackName} Websocket Disconnect
+      Handler: disconnect.handler
+      CodeUri: ./dist
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationDatabase
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref ApplicationDatabase
+          DYNAMODB_GSI1_INDEX: !Sub ${AWS::StackName}-gsi1
+  WebSocketDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub ${WebSocketDisconnectFunction.Alias}
+      Principal: apigateway.amazonaws.com
+  WebSocketDisconnectFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-websocket-disconnect
+      RetentionInDays: !Ref LogRetention
+  # Websocket Send Function
+  WebSocketSendFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: WebSocketSendFunctionLogGroup
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-websocket-send
+      Description: !Sub ${AWS::StackName} Websocket Send
+      Handler: send.handler
+      CodeUri: ./dist
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationDatabase
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: InvokeApi
+              Effect: Allow
+              Action:
+              - execute-api:Invoke
+              - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref ApplicationDatabase
+          DYNAMODB_GSI1_INDEX: !Sub ${AWS::StackName}-gsi1
+  WebSocketSendPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub ${WebSocketSendFunction.Alias}
+      Principal: apigateway.amazonaws.com
+  WebSocketSendFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-websocket-send
+      RetentionInDays: !Ref LogRetention
   # Serverless API
   SampleApi:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: v1
-
   # Serverless Function
   SampleFunction:
     Type: AWS::Serverless::Function
     DependsOn: SampleFunctionLogGroup
-    Metadata:
-      BuildMethod: makefile
     Properties:
       FunctionName: !Sub ${AWS::StackName}-sample-app
       Description: !Sub ${AWS::StackName} Compose Backend
-      Handler: dist/app.handler
+      Handler: app.handler
+      CodeUri: ./dist
       Policies:
         - AWSXrayWriteOnlyAccess
         - Version: '2012-10-17'
@@ -102,9 +382,18 @@ Resources:
       RetentionInDays: !Ref LogRetention
 
 Outputs:
+  ApplicationDatabase:
+    Description: Application Database
+    Value: !Ref ApplicationDatabase
+  RestApi:
+    Description: REST API Gateway Endpoint
+    Value: !Sub ${RestApi.ApiEndpoint}/v1
+  WebSocketApi:
+    Description: Websocket API Gateway Endpoint
+    Value: !Sub ${WebSocketApi.ApiEndpoint}/${WebSocketStage}
   SampleApi:
     Description: API Gateway Endpoint
-    Value: !Sub https://${SampleApi}.execute-api.${AWS::Region}.amazonaws.com/v1
+    Value: !Sub ${SampleApi.ApiEndpoint}/v1
   SampleFunctionAlias:
     Description: Sample Function Alias
     Value: !Sub ${SampleFunction.Alias}

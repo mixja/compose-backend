@@ -11,7 +11,8 @@ build:
 	yarn build
 	sam build --cached
 
-build-SampleFunction: copy-artifacts
+build-%:
+	$(MAKE) copy-artifacts
 
 build-Dependencies:
 	mkdir -p "$(ARTIFACTS_DIR)/nodejs"
