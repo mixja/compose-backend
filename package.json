@@ -9,12 +9,18 @@
     "@types/babel__core": "^7",
     "@types/babel__preset-env": "^7",
     "@types/jest": "^27.0.2",
+    "@types/prettier": "^2",
     "babel-jest": "^27.3.1",
     "jest": "^27.3.1",
     "msw": "^0.35.0",
+    "prettier": "^2.4.1",
     "typescript": "^4.4.4"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.40.0",
+    "@aws-sdk/lib-dynamodb": "^3.40.0",
+    "@aws-sdk/smithy-client": "^3.40.0",
+    "@aws-sdk/types": "^3.40.0",
     "aws-xray-sdk": "^3.3.3",
     "axios": "^0.24.0"
   },

@@ -62,12 +62,92 @@ Resources:
         - !Ref Runtime
       LicenseInfo: MIT
       RetentionPolicy: Delete
+  # Rest API
+  RestApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: v1
+  # State Function
+  StateFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: StateFunctionLogGroup
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-state-function
+      Description: !Sub ${AWS::StackName} State Function
+      Handler: dist/state.handler
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationDatabase
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref ApplicationDatabase
+          DYNAMODB_GSI1_INDEX: !Sub ${AWS::StackName}-gsi1
+      Events:
+        GetState:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RestApi
+            Method: GET
+            Path: /state/{key}
+        PutState:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RestApi
+            Method: PUT
+            Path: /state/{key}
+  StateFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-state-function
+      RetentionInDays: !Ref LogRetention
+  # DynamoDB
+  ApplicationDatabase:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-db
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      GlobalSecondaryIndexes:
+        - IndexName: !Sub ${AWS::StackName}-gsi1
+          KeySchema:
+            - AttributeName: gsi1pk
+              KeyType: HASH
+            - AttributeName: gsi1sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: gsi1pk
+          AttributeType: S
+        - AttributeName: gsi1sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-db
   # Serverless API
   SampleApi:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: v1
-
   # Serverless Function
   SampleFunction:
     Type: AWS::Serverless::Function
@@ -102,6 +182,12 @@ Resources:
       RetentionInDays: !Ref LogRetention
 
 Outputs:
+  ApplicationDatabase:
+    Description: Application Database
+    Value: !Ref ApplicationDatabase
+  RestApi:
+    Description: API Gateway Endpoint
+    Value: !Sub https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/v1
   SampleApi:
     Description: API Gateway Endpoint
     Value: !Sub https://${SampleApi}.execute-api.${AWS::Region}.amazonaws.com/v1
