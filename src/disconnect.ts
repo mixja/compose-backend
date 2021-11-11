@@ -6,14 +6,11 @@ const client = DynamoDBDocument.from(dynamodb);
 const { DYNAMODB_TABLE } = process.env;
 
 export const handler = async (event, context?) => {
-  console.log(JSON.stringify(event));
-
-  // Get connectionId from event
   const { connectionId } = event.requestContext;
-  const pk = `subscription#${connectionId}`;
-  const sk = `subscription#${connectionId}`;
+  const pk = `connection#${connectionId}`;
+  const sk = `connection#${connectionId}`;
 
-  const r = await client.update({
+  await client.update({
     TableName: DYNAMODB_TABLE,
     Key: { pk, sk },
     UpdateExpression: "SET disconnectedAt = :t",
