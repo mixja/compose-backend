@@ -1,5 +1,7 @@
 import WebSocket from "ws";
 import { CloudFormation } from "@aws-sdk/client-cloudformation";
+import { DynamoDB } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 
 const cloudformation = new CloudFormation({});
 let outputs;
@@ -28,22 +30,35 @@ beforeAll(async () => {
 
 describe("Websockets", () => {
   it("should subscribe and receive the current state", async () => {
-    const action = JSON.stringify({ action: "subscribe", name: "test" });
+    const name = "test";
+    const value = { foo: "bar" };
+
+    // set the current state
+    const dynamodb = new DynamoDB({});
+    const dynamoClient = DynamoDBDocument.from(dynamodb);
+    await dynamoClient.put({
+      TableName: outputs.ApplicationDatabase,
+      Item: {
+        pk: `state#${name}`,
+        sk: `state#${name}`,
+        value: JSON.stringify(value),
+      },
+    });
+
+    const action = JSON.stringify({ action: "subscribe", name });
     let reply;
     // Connect
-    const client = new WebSocket(outputs.WebSocketApi);
-    await waitForSocketState(client, client.OPEN);
+    const wsClient = new WebSocket(outputs.WebSocketApi);
+    await waitForSocketState(wsClient, wsClient.OPEN);
     // Callback when message received
-    client.on("message", (response) => {
+    wsClient.on("message", (response) => {
       reply = new TextDecoder().decode(response);
-      console.log(reply);
-      client.close();
+      wsClient.close();
     });
 
     // Send message and await response
-    client.send(action);
-    await waitForSocketState(client, client.CLOSED);
-    console.log(reply);
-    // expect(reply).toBe(message)
+    wsClient.send(action);
+    await waitForSocketState(wsClient, wsClient.CLOSED);
+    expect(reply).toBe(JSON.stringify(value));
   });
 });
