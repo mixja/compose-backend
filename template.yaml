@@ -249,11 +249,59 @@ Resources:
       Description: !Sub ${AWS::StackName} websockets subscribe integration
       IntegrationType: AWS_PROXY
       IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketSubscribeFunction.Alias}/invocations
+  WebSocketUnsubscribeRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: unsubscribe
+      AuthorizationType: NONE
+      OperationName: Unsubscribe
+      Target: !Sub integrations/${WebSocketUnsubscribeIntegration}
+  WebSocketUnsubscribeIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: !Sub ${AWS::StackName} websockets unsubscribe integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketUnsubscribeFunction.Alias}/invocations
+  WebSocketUpdateRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: unsubscribe
+      AuthorizationType: NONE
+      OperationName: Update
+      Target: !Sub integrations/${WebSocketUpdateIntegration}
+  WebSocketUpdateIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: !Sub ${AWS::StackName} websockets update integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketUpdateFunction.Alias}/invocations
+  WebSocketMagicLinkAuthenticateRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: magic-link-authenticate
+      AuthorizationType: NONE
+      OperationName: MagicLinkAuthenticate
+      Target: !Sub integrations/${WebSocketMagicLinkAuthenticateIntegration}
+  WebSocketMagicLinkAuthenticateIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: !Sub ${AWS::StackName} websockets magic-link-authenticate integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketMagicLinkAuthenticateFunction.Alias}/invocations
   WebSocketDeployment:
     Type: AWS::ApiGatewayV2::Deployment
     DependsOn:
       - WebSocketConnectRoute
       - WebSocketSubscribeRoute
+      - WebSocketUnsubscribeRoute
+      - WebSocketUpdateRoute
+      - WebSocketMagicLinkAuthenticateRoute
       - WebSocketDisconnectRoute
     Properties:
       ApiId: !Ref WebSocketApi
@@ -363,6 +411,120 @@ Resources:
     DeletionPolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${AWS::StackName}-websocket-subscribe
+      RetentionInDays: !Ref LogRetention
+  WebSocketUnsubscribeFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: WebSocketUnsubscribeFunctionLogGroup
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-websocket-unsubscribe
+      Description: !Sub ${AWS::StackName} Websocket Unsubscribe
+      Handler: unsubscribe.handler
+      CodeUri: ./dist
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationDatabase
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: InvokeApi
+              Effect: Allow
+              Action:
+                - execute-api:Invoke
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref ApplicationDatabase
+          DYNAMODB_GSI1_INDEX: !Sub ${AWS::StackName}-gsi1
+  WebSocketUnsubscribePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub ${WebSocketUnsubscribeFunction.Alias}
+      Principal: apigateway.amazonaws.com
+  WebSocketUnsubscribeFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-websocket-unsubscribe
+      RetentionInDays: !Ref LogRetention
+  WebSocketUpdateFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: WebSocketUpdateFunctionLogGroup
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-websocket-update
+      Description: !Sub ${AWS::StackName} Websocket Update
+      Handler: update.handler
+      CodeUri: ./dist
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationDatabase
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: InvokeApi
+              Effect: Allow
+              Action:
+                - execute-api:Invoke
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref ApplicationDatabase
+          DYNAMODB_GSI1_INDEX: !Sub ${AWS::StackName}-gsi1
+  WebSocketUpdatePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub ${WebSocketUpdateFunction.Alias}
+      Principal: apigateway.amazonaws.com
+  WebSocketUpdateFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-websocket-update
+      RetentionInDays: !Ref LogRetention
+  WebSocketMagicLinkAuthenticateFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: WebSocketMagicLinkAuthenticateFunctionLogGroup
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-websocket-magic-link-authenticate
+      Description: !Sub ${AWS::StackName} Websocket MagicLinkAuthenticate
+      Handler: magic-link-authenticate.handler
+      CodeUri: ./dist
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationDatabase
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: InvokeApi
+              Effect: Allow
+              Action:
+                - execute-api:Invoke
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref ApplicationDatabase
+          DYNAMODB_GSI1_INDEX: !Sub ${AWS::StackName}-gsi1
+  WebSocketMagicLinkAuthenticatePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub ${WebSocketMagicLinkAuthenticateFunction.Alias}
+      Principal: apigateway.amazonaws.com
+  WebSocketMagicLinkAuthenticateFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-websocket-magic-link-authenticate
       RetentionInDays: !Ref LogRetention
   # Serverless API
   SampleApi:

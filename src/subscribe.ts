@@ -11,14 +11,14 @@ const { DYNAMODB_TABLE } = process.env;
 
 export const handler = async (event, context?) => {
   const { connectionId } = event.requestContext;
-  const name = JSON.parse(event.body).name;
+  const { name } = JSON.parse(event.body);
 
   // create subscription
   const SubscriptionKey = {
-    pk: `subscription#${name}`,
-    sk: `subscription#${name}`,
+    pk: `subscription#${connectionId}`,
+    sk: `subscription#${connectionId}`,
   };
-  const Subscription = { ...SubscriptionKey, startedAt: Date.now() };
+  const Subscription = { ...SubscriptionKey, startedAt: Date.now(), name };
   try {
     await client.put({ TableName: DYNAMODB_TABLE, Item: Subscription });
   } catch (e) {
