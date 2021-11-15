@@ -32,6 +32,11 @@ deploy:
 test:
 	yarn test
 
+
+test-integration-verbose:
+	yarn test-integration-verbose
+
+
 watch:
 	yarn watch
 

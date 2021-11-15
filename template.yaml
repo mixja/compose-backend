@@ -1,6 +1,6 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Transform: 
-- AWS::Serverless-2016-10-31
+AWSTemplateFormatVersion: "2010-09-09"
+Transform:
+  - AWS::Serverless-2016-10-31
 Description: Compose Backend
 Metadata:
   AWS::ServerlessRepo::Application:
@@ -10,7 +10,7 @@ Metadata:
     SpdxLicenseId: MIT
     LicenseUrl: LICENSE.txt
     ReadmeUrl: README.md
-    Labels: ['compose-backend','cloudformation']
+    Labels: ["compose-backend", "cloudformation"]
     HomePageUrl: https://github.com/compose-run/compose-backend
     SemanticVersion: 0.1.0
     SourceCodeUrl: https://github.com/compose-run/compose-backend
@@ -35,7 +35,26 @@ Parameters:
     Type: Number
     Description: Log Retention
     Default: 30
-    AllowedValues: [ 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653 ]
+    AllowedValues:
+      [
+        1,
+        3,
+        5,
+        7,
+        14,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        365,
+        400,
+        545,
+        731,
+        1827,
+        3653,
+      ]
 
 # Global settings
 Globals:
@@ -164,8 +183,10 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApplicationDatabase
         - DynamoDBStreamReadPolicy:
-            TableName: !Select [1, !Split ["/", !GetAtt ApplicationDatabase.StreamArn]]
-            StreamName: !Select [3, !Split ["/", !GetAtt ApplicationDatabase.StreamArn]]
+            TableName:
+              !Select [1, !Split ["/", !GetAtt ApplicationDatabase.StreamArn]]
+            StreamName:
+              !Select [3, !Split ["/", !GetAtt ApplicationDatabase.StreamArn]]
       Environment:
         Variables:
           DYNAMODB_TABLE: !Ref ApplicationDatabase
@@ -213,27 +234,27 @@ Resources:
       Description: !Sub ${AWS::StackName} websockets disconnect integration
       IntegrationType: AWS_PROXY
       IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketDisconnectFunction.Alias}/invocations
-  WebSocketSendRoute:
+  WebSocketSubscribeRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref WebSocketApi
-      RouteKey: sendmessage
+      RouteKey: subscribe
       AuthorizationType: NONE
-      OperationName: SendRoute
-      Target: !Sub integrations/${WebSocketSendIntegration}
-  WebSocketSendIntegration:
+      OperationName: Subscribe
+      Target: !Sub integrations/${WebSocketSubscribeIntegration}
+  WebSocketSubscribeIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref WebSocketApi
-      Description: !Sub ${AWS::StackName} websockets send integration
+      Description: !Sub ${AWS::StackName} websockets subscribe integration
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketSendFunction.Alias}/invocations
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketSubscribeFunction.Alias}/invocations
   WebSocketDeployment:
     Type: AWS::ApiGatewayV2::Deployment
     DependsOn:
-    - WebSocketConnectRoute
-    - WebSocketSendRoute
-    - WebSocketDisconnectRoute
+      - WebSocketConnectRoute
+      - WebSocketSubscribeRoute
+      - WebSocketDisconnectRoute
     Properties:
       ApiId: !Ref WebSocketApi
   WebSocketStage:
@@ -305,44 +326,43 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${AWS::StackName}-websocket-disconnect
       RetentionInDays: !Ref LogRetention
-  # Websocket Send Function
-  WebSocketSendFunction:
+  WebSocketSubscribeFunction:
     Type: AWS::Serverless::Function
-    DependsOn: WebSocketSendFunctionLogGroup
+    DependsOn: WebSocketSubscribeFunctionLogGroup
     Properties:
-      FunctionName: !Sub ${AWS::StackName}-websocket-send
-      Description: !Sub ${AWS::StackName} Websocket Send
-      Handler: send.handler
+      FunctionName: !Sub ${AWS::StackName}-websocket-subscribe
+      Description: !Sub ${AWS::StackName} Websocket Subscribe
+      Handler: subscribe.handler
       CodeUri: ./dist
       Policies:
         - AWSXrayWriteOnlyAccess
         - DynamoDBCrudPolicy:
             TableName: !Ref ApplicationDatabase
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Sid: InvokeApi
               Effect: Allow
               Action:
-              - execute-api:Invoke
-              - execute-api:ManageConnections
+                - execute-api:Invoke
+                - execute-api:ManageConnections
               Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
       Environment:
         Variables:
           DYNAMODB_TABLE: !Ref ApplicationDatabase
           DYNAMODB_GSI1_INDEX: !Sub ${AWS::StackName}-gsi1
-  WebSocketSendPermission:
+  WebSocketSubscribePermission:
     Type: AWS::Lambda::Permission
     DependsOn:
       - WebSocketApi
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Sub ${WebSocketSendFunction.Alias}
+      FunctionName: !Sub ${WebSocketSubscribeFunction.Alias}
       Principal: apigateway.amazonaws.com
-  WebSocketSendFunctionLogGroup:
+  WebSocketSubscribeFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete
     Properties:
-      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-websocket-send
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-websocket-subscribe
       RetentionInDays: !Ref LogRetention
   # Serverless API
   SampleApi:
@@ -360,13 +380,13 @@ Resources:
       CodeUri: ./dist
       Policies:
         - AWSXrayWriteOnlyAccess
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Sid: ExamplePermissions
               Effect: Allow
               Action:
-              - s3:GetObject
-              Resource: '*'
+                - s3:GetObject
+              Resource: "*"
       Events:
         Get:
           Type: HttpApi
