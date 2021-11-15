@@ -14,8 +14,8 @@ export const handler = async (event, context?) => {
       client.update({
         TableName: DYNAMODB_TABLE,
         Key: {
-          pk: `subscription#${connectionId}`,
-          sk: `subscription#${connectionId}`,
+          pk: `TODO - what goes here?`,
+          sk: `connection#${connectionId}#subscription`,
         },
         ConditionExpression: "attribute_not_exists(unsubscribedAt)", // should I add a GSI on unsubscribedAt?
         UpdateExpression: "SET unsubscribedAt = :t",

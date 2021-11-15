@@ -39,8 +39,8 @@ describe("Websockets", () => {
     await dynamoClient.put({
       TableName: outputs.ApplicationDatabase,
       Item: {
-        pk: `subscription#${connectionId}`,
-        sk: `subscription#${connectionId}`,
+        pk: `state#${name}`,
+        sk: `connection#${connectionId}#subscription`,
       },
     });
 

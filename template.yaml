@@ -268,7 +268,7 @@ Resources:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref WebSocketApi
-      RouteKey: unsubscribe
+      RouteKey: update
       AuthorizationType: NONE
       OperationName: Update
       Target: !Sub integrations/${WebSocketUpdateIntegration}

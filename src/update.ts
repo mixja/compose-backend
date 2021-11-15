@@ -37,7 +37,7 @@ export const handler = async (event, context?) => {
   try {
     const subscriptionsData = await client.query({
       TableName: DYNAMODB_TABLE,
-      IndexName: "gsi-subscription-name",
+      IndexName: "gsi-subscription-name", // TODO - actually make this in template.yaml
       KeyConditionExpression:
         "name = :name and attribute_not_exists(unsubscribedAt)", // should I add a GSI on unsubscribedAt?
       ExpressionAttributeValues: {

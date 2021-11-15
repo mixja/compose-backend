@@ -60,5 +60,7 @@ describe("Websockets", () => {
     wsClient.send(action);
     await waitForSocketState(wsClient, wsClient.CLOSED);
     expect(reply).toBe(JSON.stringify(value));
+
+    // TODO - verify that the subscription is in the database
   });
 });

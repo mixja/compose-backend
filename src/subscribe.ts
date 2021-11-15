@@ -15,10 +15,10 @@ export const handler = async (event, context?) => {
 
   // create subscription
   const SubscriptionKey = {
-    pk: `subscription#${connectionId}`,
-    sk: `subscription#${connectionId}`,
+    pk: `name#${connectionId}`,
+    sk: `connection#${connectionId}#subscription`,
   };
-  const Subscription = { ...SubscriptionKey, startedAt: Date.now(), name };
+  const Subscription = { ...SubscriptionKey, startedAt: Date.now() };
   try {
     await client.put({ TableName: DYNAMODB_TABLE, Item: Subscription });
   } catch (e) {

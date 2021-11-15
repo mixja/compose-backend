@@ -11,15 +11,14 @@ export const handler = async (event, context?) => {
 
   // delete subscription
   const Key = {
-    pk: `subscription#${connectionId}`,
-    sk: `subscription#${connectionId}`,
+    pk: `name#${connectionId}`,
+    sk: `connection#${connectionId}#subscription`,
   };
   try {
     await client.update({
       TableName: DYNAMODB_TABLE,
       Key,
-      ConditionExpression:
-        "name = :name and attribute_not_exists(unsubscribedAt)", // should I add a GSI on unsubscribedAt?
+      ConditionExpression: "attribute_not_exists(unsubscribedAt)", // should I add a GSI on unsubscribedAt?
       UpdateExpression: "SET unsubscribedAt = :t",
       ExpressionAttributeValues: { ":t": Date.now(), ":name": name },
     });
