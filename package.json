@@ -32,7 +32,7 @@
     "build": "tsc",
     "integration": "jest __tests__/integration",
     "test": "jest --silent __tests__/unit",
-    "test-integration-verbose": "yarn run jest --verbose __tests__/integration",
+    "test-integration-verbose": "jest --verbose __tests__/integration",
     "watch": "jest --silent --watch __tests__/unit"
   },
   "jest": {
