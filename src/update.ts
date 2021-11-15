@@ -7,7 +7,7 @@ import {
 
 const dynamodb = new DynamoDB({});
 const client = DynamoDBDocument.from(dynamodb);
-const { DYNAMODB_TABLE } = process.env;
+const { DYNAMODB_TABLE, DYNAMODB_GSI1_INDEX } = process.env;
 
 export const handler = async (event, context?) => {
   const { connectionId } = event.requestContext;
@@ -37,7 +37,7 @@ export const handler = async (event, context?) => {
   try {
     const subscriptionsData = await client.query({
       TableName: DYNAMODB_TABLE,
-      IndexName: "gsi-subscription-name", // TODO - actually make this in template.yaml
+      IndexName: DYNAMODB_GSI1_INDEX, // TODO - verify that this gets pulled in correctly
       KeyConditionExpression:
         "name = :name and attribute_not_exists(unsubscribedAt)", // should I add a GSI on unsubscribedAt?
       ExpressionAttributeValues: {
