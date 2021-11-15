@@ -10,34 +10,31 @@ const client = DynamoDBDocument.from(dynamodb);
 const { DYNAMODB_TABLE } = process.env;
 
 export const handler = async (event, context?) => {
-  const { connectionId } = event.requestContext;
-  const { name } = JSON.parse(event.body);
-
-  // create subscription
-  const SubscriptionKey = {
-    pk: `name#${connectionId}`,
-    sk: `connection#${connectionId}#subscription`,
-  };
-  const Subscription = { ...SubscriptionKey, startedAt: Date.now() };
-  try {
-    await client.put({ TableName: DYNAMODB_TABLE, Item: Subscription });
-  } catch (e) {
-    console.log(e);
-    return { statusCode: 500 };
-  }
-
   // get current state
   try {
-    const StateKey = { pk: `state#${name}`, sk: `state#${name}` };
-    const State = await client.get({
+    const { connectionId } = event.requestContext;
+    const { name } = JSON.parse(event.body);
+    const stateKey = { pk: `state#${name}`, sk: `state#${name}` };
+    const { Item: item } = await client.get({
       TableName: DYNAMODB_TABLE,
-      Key: StateKey,
+      Key: stateKey,
     });
+
+    // create subscription
+    const startedAt = Date.now();
+    const subscription = {
+      pk: `state#${name}`,
+      sk: `subscription#${connectionId}`,
+      gsi1pk: `connection#${connectionId}`,
+      gsi1sk: `status#connected#` + startedAt,
+      startedAt
+    };
+    await client.put({ TableName: DYNAMODB_TABLE, Item: subscription });
 
     // send current state to client
     const command = new PostToConnectionCommand({
       ConnectionId: connectionId,
-      Data: new TextEncoder().encode(State.Item.value),
+      Data: new TextEncoder().encode(item.value),
     });
     const api = new ApiGatewayManagementApiClient({
       endpoint: `https://${event.requestContext.domainName}/${event.requestContext.stage}`,
