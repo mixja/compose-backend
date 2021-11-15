@@ -27,7 +27,7 @@ export const handler = async (event, context?) => {
       sk: `subscription#${connectionId}`,
       gsi1pk: `connection#${connectionId}`,
       gsi1sk: `status#connected#` + startedAt,
-      startedAt
+      startedAt,
     };
     await client.put({ TableName: DYNAMODB_TABLE, Item: subscription });
 
