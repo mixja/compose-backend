@@ -9,18 +9,23 @@ export const handler = async (event, context?) => {
   const { connectionId } = event.requestContext;
   const name = JSON.parse(event.body).name;
 
-  // delete subscription
-  const Key = {
-    pk: `name#${connectionId}`,
-    sk: `connection#${connectionId}#subscription`,
-  };
+  // Mark subscription as no longer active
   try {
+    const now = Date.now()
     await client.update({
       TableName: DYNAMODB_TABLE,
-      Key,
-      ConditionExpression: "attribute_not_exists(unsubscribedAt)", // should I add a GSI on unsubscribedAt?
-      UpdateExpression: "SET unsubscribedAt = :t",
-      ExpressionAttributeValues: { ":t": Date.now(), ":name": name },
+      Key: {
+        pk: `state#${name}`,
+        sk: `subscription#${connectionId}`,
+      },
+      ConditionExpression: 
+        "attribute_not_exists(unsubscribedAt)", 
+      UpdateExpression: 
+        "SET unsubscribedAt = :t, gsi1sk = :gsi1sk",
+      ExpressionAttributeValues: {
+        ":t": now,
+        ":gsi1sk": `status#disconnected#${now}`
+      },
     });
     return { statusCode: 200 };
   } catch (e) {
