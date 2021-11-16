@@ -33,44 +33,45 @@ export const handler = async (event, context?) => {
   }
 
   // get all clients by state name
-  var subscriptions;
   try {
-    const subscriptionsData = await client.query({
+    // TODO: add pagination
+    const { Items: subscriptions } = await client.query({
       TableName: DYNAMODB_TABLE,
-      IndexName: DYNAMODB_GSI1_INDEX, // TODO - verify that this gets pulled in correctly
       KeyConditionExpression:
-        "name = :name and attribute_not_exists(unsubscribedAt)", // should I add a GSI on unsubscribedAt?
+        "pk = :name and begins_with(sk, :subscription)",
+      // Filter to only connected subscriptions
+      FilterExpression:
+        "begins_with(gsi1sk, :gsi1sk)",
       ExpressionAttributeValues: {
-        ":name": name,
+        ":name": `state#${name}`,
+        ":subscription": "subscription#",
+        ":gsi1sk": "status#connected#",
       },
     });
-    console.log(subscriptionsData); // TODO - remove this after debugging
-    subscriptions = subscriptionsData.Items;
+    // send new state to all subscriptions
+    const valueJSONText = new TextEncoder().encode(valueJSON);
+    await Promise.all(
+      subscriptions.map((subscription) => {
+        const connectionId = subscription.sk.split("#")[1];
+        const command = new PostToConnectionCommand({
+          ConnectionId: connectionId,
+          Data: valueJSONText,
+        });
+        const api = new ApiGatewayManagementApiClient({
+          endpoint: `https://${event.requestContext.domainName}/${event.requestContext.stage}`,
+        });
+        return api.send(command).catch((e) => {
+          // TODO - depending on the error: retry or end subscription and connection
+        });
+      })
+    );
+
+    return { statusCode: 200 };
   } catch (e) {
     // This really should never error
     console.log(e);
     return { statusCode: 200 }; // don't need to bug the current user about it though
   }
-
-  // send new state to all subscriptions
-  const valueJSONText = new TextEncoder().encode(valueJSON);
-  Promise.all(
-    subscriptions.map((subscription) => {
-      const connectionId = subscription.pk.split("#")[1];
-      const command = new PostToConnectionCommand({
-        ConnectionId: connectionId,
-        Data: valueJSONText,
-      });
-      const api = new ApiGatewayManagementApiClient({
-        endpoint: `https://${event.requestContext.domainName}/${event.requestContext.stage}`,
-      });
-      return api.send(command).catch((e) => {
-        // TODO - depending on the error: retry or end subscription and connection
-      });
-    })
-  );
-
-  return { statusCode: 200 };
 };
 
 // for local testing:

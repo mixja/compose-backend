@@ -20,7 +20,7 @@ export const handler = async (event, context?) => {
         "gsi1pk = :gsi1pk AND begins_with(gsi1sk, :gsi1sk)",
       ExpressionAttributeValues: {
         ":gsi1pk": `connection#${connectionId}`,
-        ":gsi1sk": `status#connected`,
+        ":gsi1sk": "status#connected#",
       },
     });
     await Promise.all(
