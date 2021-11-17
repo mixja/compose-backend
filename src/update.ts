@@ -39,13 +39,13 @@ export const handler = async (event, context?) => {
       TableName: DYNAMODB_TABLE,
       KeyConditionExpression:
         "pk = :name and begins_with(sk, :subscription)",
-      // Filter to only connected subscriptions
+      // Filter to only active subscriptions
       FilterExpression:
         "begins_with(gsi1sk, :gsi1sk)",
       ExpressionAttributeValues: {
         ":name": `state#${name}`,
         ":subscription": "subscription#",
-        ":gsi1sk": "status#connected#",
+        ":gsi1sk": "status#subscribed#",
       },
     });
     // send new state to all subscriptions

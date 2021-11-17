@@ -12,6 +12,7 @@ export const handler = async (event, context?) => {
   // Mark subscription as no longer active
   try {
     const now = Date.now()
+    const status = "unsubscribed"
     await client.update({
       TableName: DYNAMODB_TABLE,
       Key: {
@@ -21,10 +22,12 @@ export const handler = async (event, context?) => {
       ConditionExpression: 
         "attribute_not_exists(unsubscribedAt)", 
       UpdateExpression: 
-        "SET unsubscribedAt = :t, gsi1sk = :gsi1sk",
+        "SET unsubscribedAt = :t, gsi1sk = :gsi1sk, status = :status, reason = :reason",
       ExpressionAttributeValues: {
         ":t": now,
-        ":gsi1sk": `status#disconnected#${now}`
+        ":gsi1sk": `status#${status}#${now}`,
+        ":status": status,
+        ":reason": "user requested",
       },
     });
     return { statusCode: 200 };

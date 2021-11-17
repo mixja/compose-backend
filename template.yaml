@@ -109,13 +109,13 @@ Resources:
           Properties:
             ApiId: !Ref RestApi
             Method: GET
-            Path: /state/{key}
+            Path: /state/{name}
         PutState:
           Type: HttpApi
           Properties:
             ApiId: !Ref RestApi
             Method: PUT
-            Path: /state/{key}
+            Path: /state/{name}
   StateFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete

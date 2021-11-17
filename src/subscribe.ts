@@ -15,18 +15,20 @@ export const handler = async (event, context?) => {
     const { connectionId } = event.requestContext;
     const { name } = JSON.parse(event.body);
     const stateKey = { pk: `state#${name}`, sk: `state#${name}` };
-    const { Item: item } = await client.get({
+    const { Item: { pk, sk, gsi1pk, gsi1sk, ...item } } = await client.get({
       TableName: DYNAMODB_TABLE,
       Key: stateKey,
     });
 
     // create subscription
     const startedAt = Date.now();
+    const status = "connected"
     const subscription = {
       pk: `state#${name}`,
       sk: `subscription#${connectionId}`,
       gsi1pk: `connection#${connectionId}`,
-      gsi1sk: `status#connected#` + startedAt,
+      gsi1sk: `status#${status}#` + startedAt,
+      status,
       startedAt,
     };
     await client.put({ TableName: DYNAMODB_TABLE, Item: subscription });

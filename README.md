@@ -83,7 +83,7 @@ Similarly the following `Subscription` item defines all embedded data attributes
   sk: "subscription#conn-1234",
   gsi1pk: "connection#conn-1234",
   gsi1sk: "status#subscribed#1643245799",
-  stateName: "foo"
+  stateName: "foo",
   connectionId: "conn-1234",
   status: "subscribed",
   subscribedAt: 1643245799
