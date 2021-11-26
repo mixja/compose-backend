@@ -12,7 +12,7 @@ export const handler = async (event, context?) => {
   const sk = `connection#${connectionId}`;
 
   // Create connection
-  const Item = { pk, sk, connectedAt, domainName, identity };
+  const Item = { pk, sk, connectionId, connectedAt, domainName, identity };
   await client.put({ TableName: DYNAMODB_TABLE, Item });
 
   return { statusCode: 200, body: "connected" };

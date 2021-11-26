@@ -29,38 +29,36 @@ beforeAll(async () => {
 });
 
 describe("Websockets", () => {
-  it("should subscribe and receive the current state", async () => {
+  it("should unsubscribe", async () => {
+    const connectionId = "fakeConnetionId";
     const name = "test";
-    const value = { foo: "bar" };
 
-    // set the current state
+    // mock a subscription
     const dynamodb = new DynamoDB({});
     const dynamoClient = DynamoDBDocument.from(dynamodb);
     await dynamoClient.put({
       TableName: outputs.ApplicationDatabase,
       Item: {
         pk: `state#${name}`,
-        sk: `state#${name}`,
-        value: JSON.stringify(value),
+        sk: `connection#${connectionId}#subscription`,
       },
     });
 
-    const action = JSON.stringify({ action: "subscribe", name });
-    let reply;
-    // Connect
-    const wsClient = new WebSocket(outputs.WebSocketApi);
-    await waitForSocketState(wsClient, wsClient.OPEN);
-    // Callback when message received
-    wsClient.on("message", (response) => {
-      reply = new TextDecoder().decode(response);
-      wsClient.close();
-    });
+    // TODO
+    //   const action = JSON.stringify({ action: "subscribe", name });
+    //   let reply;
+    //   // Connect
+    //   const wsClient = new WebSocket(outputs.WebSocketApi);
+    //   await waitForSocketState(wsClient, wsClient.OPEN);
+    //   // Callback when message received
+    //   wsClient.on("message", (response) => {
+    //     reply = new TextDecoder().decode(response);
+    //     wsClient.close();
+    //   });
 
-    // Send message and await response
-    wsClient.send(action);
-    await waitForSocketState(wsClient, wsClient.CLOSED);
-    expect(reply).toBe(JSON.stringify(value));
-
-    // TODO - verify that the subscription is in the database
+    //   // Send message and await response
+    //   wsClient.send(action);
+    //   await waitForSocketState(wsClient, wsClient.CLOSED);
+    //   expect(reply).toBe(JSON.stringify(value));
   });
 });
